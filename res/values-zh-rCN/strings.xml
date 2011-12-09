@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="hello">Hello World, LaCameraActivity!</string>
+    <string name="app_name">乐拍</string>
+    <string name="msg_unable_to_get_current_location">无法取得目前位置。</string>
+    <string name="latitude_longitude">纬度：%1$09f 经度：%2$09f</string>
+    <string name="can_not_open_file">打开文件出错</string>
+    <string name="can_not_find_a_suitable_program_to_open_this_file">没找到适合打开这个文件的程序</string>
+
+</resources>
