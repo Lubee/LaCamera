@@ -13,7 +13,7 @@
 
         <RelativeLayout
             android:layout_width="fill_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="48dp"
             android:background="@drawable/title_bg"
             android:orientation="horizontal" >
 
@@ -31,6 +31,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignParentRight="true"
+                android:layout_marginRight="10dp"
+                android:layout_centerInParent="true"
                 android:src="@drawable/camera_48" />
         </RelativeLayout>
 
@@ -59,7 +61,7 @@
             android:id="@+id/preview_view"
             android:layout_width="fill_parent"
             android:layout_height="fill_parent"
-            android:layout_gravity="center|center_horizontal" />
+            />
 
         <Button
             android:id="@+id/cancel_btn"

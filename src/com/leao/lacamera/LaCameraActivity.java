@@ -3,7 +3,6 @@ package com.leao.lacamera;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
-import java.text.BreakIterator;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -20,7 +19,9 @@ import android.graphics.Bitmap.Config;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.PointF;
 import android.graphics.Typeface;
 import android.location.Criteria;
 import android.location.Location;
@@ -31,17 +32,22 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.provider.MediaStore;
+import android.util.FloatMath;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.view.View.OnTouchListener;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.webkit.MimeTypeMap;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.AdapterView.OnItemLongClickListener;
 import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
+import android.widget.ImageView.ScaleType;
 import android.widget.ListView;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
@@ -214,29 +220,97 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 		postBtn = (Button) findViewById(R.id.post_btn);
 		cancelBtn = (Button) findViewById(R.id.cancel_btn);
 		previewView = (ImageView) findViewById(R.id.preview_view);
+
+		previewView.setOnTouchListener(onTouchListener);
+		
 		postBtn.setOnClickListener(this);
 		cancelBtn.setOnClickListener(this);
-
-		// mProgressDialog = new ProgressDialog(this);
-		// // 创建ProgressDialog对象
-		//
-		// // 设置进度条风格，风格为圆形，旋转的
-		// mProgressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-		//
-		// // 设置ProgressDialog 标题
-		// mProgressDialog.setTitle("提示");
-		//
-		// // 设置ProgressDialog提示信息
-		// mProgressDialog.setMessage("正在处理水印,请稍等...");
-		//
-		// // 设置ProgressDialog 的进度条是否不明确 false 就是不设置为不明确
-		// mProgressDialog.setIndeterminate(false);
-		//
-		// // 设置ProgressDialog 是否可以按退回键取消
-		// mProgressDialog.setCancelable(false);
-
 	}
 
+
+	Matrix matrix = new Matrix();
+	private OnTouchListener onTouchListener = new OnTouchListener() {
+		   Matrix savedMatrix = new Matrix(); 
+		   PointF start = new PointF();
+		   PointF mid = new PointF(); 
+		   static final int NONE = 0;
+		   static final int DRAG = 1;
+		   static final int ZOOM = 2;
+		   int mode = NONE; 
+		   float oldDist = 1f;  
+		@Override
+		public boolean onTouch(View v, MotionEvent event) {
+				
+			      // Handle touch events here...
+			      ImageView view = (ImageView) v;
+			      // Handle touch events here...
+			      switch (event.getAction() & MotionEvent.ACTION_MASK) {
+			        //设置拖拉模式
+			        case MotionEvent.ACTION_DOWN:
+			            savedMatrix.set(matrix);
+			            start.set(event.getX(), event.getY());
+			            Log.d(TAG, "mode=DRAG" );
+			            mode = DRAG;
+			            break;
+
+			         case MotionEvent.ACTION_UP:
+			         case MotionEvent.ACTION_POINTER_UP:
+			            mode = NONE;
+			            Log.d(TAG, "mode=NONE" );
+			            break;
+			         //设置多点触摸模式
+			         case MotionEvent.ACTION_POINTER_DOWN:
+			            oldDist = spacing(event);
+			            Log.d(TAG, "oldDist=" + oldDist);
+			            if (oldDist > 10f) {
+			               savedMatrix.set(matrix);
+			               midPoint(mid, event);
+			               mode = ZOOM;
+			               Log.d(TAG, "mode=ZOOM" );
+			            }
+			            previewView.setScaleType(ScaleType.MATRIX);
+			            break;
+			          //若为DRAG模式，则点击移动图片
+			         case MotionEvent.ACTION_MOVE:
+			            if (mode == DRAG) {
+			               matrix.set(savedMatrix);
+			               // 设置位移
+			               matrix.postTranslate(event.getX() - start.x,event.getY() - start.y);
+			            }
+			            //若为ZOOM模式，则多点触摸缩放
+			               else if (mode == ZOOM) {
+			               float newDist = spacing(event);
+			               Log.d(TAG, "newDist=" + newDist);
+			               if (newDist > 10f) {
+			                  matrix.set(savedMatrix);
+			                  float scale = newDist / oldDist;
+			                  //设置缩放比例和图片中点位置
+			                  matrix.postScale(scale, scale, mid.x, mid.y);
+			               }
+			            }
+			            previewView.setScaleType(ScaleType.MATRIX);
+			            break;
+			      }
+
+			      // Perform the transformation
+			      view.setImageMatrix(matrix);
+			     
+			      return true; // indicate event was handled
+			   
+		}
+	};
+	//计算移动距离
+	   private float spacing(MotionEvent event) {
+	      float x = event.getX(0) - event.getX(1);
+	      float y = event.getY(0) - event.getY(1);
+	      return FloatMath.sqrt(x * x + y * y);
+	   }
+	//计算中点位置
+	   private void midPoint(PointF point, MotionEvent event) {
+	      float x = event.getX(0) + event.getX(1);
+	      float y = event.getY(0) + event.getY(1);
+	      point.set(x / 2, y / 2);
+	   } 
 	private void showProgressDialog(boolean isInit) {
 		if (null == mProgressDialog) {
 			if (isInit) {
@@ -269,26 +343,27 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 		}
 	};
 
-	@Override
-	public boolean onTouchEvent(MotionEvent event) {
-		// TODO Auto-generated method stub
-		return super.onTouchEvent(event);
-	}
 
 	@Override
 	public boolean onKeyDown(int keyCode, KeyEvent event) {
 		switch (keyCode) {
 		case KeyEvent.KEYCODE_BACK:
 			if (relativeLayoutPre.isShown()) {
-				mImageView.setEnabled(true);
-				itemlist.setEnabled(true);
-				relativeLayoutPre.setVisibility(View.INVISIBLE);
+				backList();
 				return true;
 			}
 			finish();
 		default:
 			return super.onKeyDown(keyCode, event);
 		}
+	}
+
+	private void backList() {
+		Animation mAnimation = AnimationUtils.loadAnimation(this, R.anim.preview_fade_in);  
+		relativeLayoutPre.startAnimation(mAnimation);
+		mImageView.setEnabled(true);
+		itemlist.setEnabled(true);
+		relativeLayoutPre.setVisibility(View.INVISIBLE);
 	}
 
 	@Override
@@ -298,9 +373,7 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 
 			break;
 		case R.id.cancel_btn:
-			mImageView.setEnabled(true);
-			itemlist.setEnabled(true);
-			relativeLayoutPre.setVisibility(View.INVISIBLE);
+			backList();
 			break;
 		default:
 			break;
@@ -311,22 +384,31 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 	@Override
 	public void onItemClick(AdapterView<?> parent, View view, int position,
 			long id) {
-
+		Animation mAnimation = AnimationUtils.loadAnimation(this, R.anim.preview_fade_out);  
+		relativeLayoutPre.startAnimation(mAnimation);
+//		relativeLayoutPre.setAnimation(mAnimation);
+//		relativeLayoutPre.startLayoutAnimation();
 		FileInfo fileinfo = currentData.fileInfos.get(position);
 		BitmapFactory.Options opts = new BitmapFactory.Options();
-		opts.inSampleSize = 1;
+		opts.inJustDecodeBounds = true;
+		BitmapFactory.decodeFile(fileinfo.path, opts);
+		int orgWidth = opts.outWidth;
+		int orgHeight  = opts.outHeight;
+		opts.inSampleSize =  2;
+		opts.inJustDecodeBounds = false;
 		Bitmap bmp = BitmapFactory.decodeFile(fileinfo.path, opts);
-		// ImageView img = new ImageView(this);
-		// img.setLayoutParams(new LayoutParams(LayoutParams.FILL_PARENT,
-		// LayoutParams.FILL_PARENT));
-		// BitmapDrawable d = new BitmapDrawable(this.getResources(), bmp);
-		// img.setImageBitmap(bmp);
-		// img.setBackgroundDrawable(d);
+
 		previewView.setImageBitmap(bmp);
+		int w = previewView.getWidth();
+		int h = previewView.getHeight();
+		previewView.setScaleType(ScaleType.FIT_CENTER);
 		mImageView.setEnabled(false);
 		itemlist.setEnabled(false);
+		matrix.reset();
+//		matrix.setScale((float)w/orgWidth, (float)h/orgHeight);
 		relativeLayoutPre.setVisibility(View.VISIBLE);
 
+		
 		// AlertDialog.Builder builder = new AlertDialog.Builder(this);
 		// builder.setTitle("发送图像")
 		// .setView(img).setPositiveButton("发送", new
