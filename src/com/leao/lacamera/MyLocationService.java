@@ -19,7 +19,7 @@ public class MyLocationService extends Service implements LocationListener {
 
 	public MyLocationService() {
 		if(null == locationHandler){
-			locationHandler = LaCameraActivity.locationHandler;
+			locationHandler = LaCameraActivity.mHandler;
 		}
 	}
 

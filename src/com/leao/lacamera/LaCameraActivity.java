@@ -3,6 +3,7 @@ package com.leao.lacamera;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
+import java.text.BreakIterator;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -50,15 +51,10 @@ import com.leao.lacamera.util.DateUtil;
 import com.leao.lacamera.util.FileUtil;
 import com.leao.lacamera.util.SearchGoogleUtil;
 
-public class LaCameraActivity extends Activity implements OnItemClickListener ,OnClickListener {
+public class LaCameraActivity extends Activity implements OnItemClickListener,
+		OnClickListener {
 
 	public static final String TAG = "LaCamera";
-
-	private ImageView mImageView;
-	FileListAdapter fileAdapterList;
-	FileData currentData;
-	ListView itemlist = null;
-	ArrayList<FileInfo> fInfos = new ArrayList<FileListAdapter.FileInfo>();
 
 	public static final int PHOTOHRAPH = 1;
 	// private static final String TEMP_FILE_NAME = "temp.jpg";
@@ -66,18 +62,30 @@ public class LaCameraActivity extends Activity implements OnItemClickListener ,O
 	// Environment.getExternalStorageDirectory()+"/LaCamera/temp/";
 	public static final String IMAGE_DIR = Environment
 			.getExternalStorageDirectory() + "/LaCamera/image/";
-
-	protected static final int UPATE_LOCATION = 1001;
-	protected static final int REFRESH = 1002;
-
 	public static double douLatitude = 23.098022285398542;
 	public static double douLongitude = 113.2801204919815;
 
+	protected static final int UPATE_LOCATION = 1001;
+	protected static final int REFRESH = 1002;
+	protected static final int MAKE_IMAGE = 1003;
+	protected static final int INITFINISH = 1004;
+
 	protected static LocationManager locationManager;
-	protected static Handler locationHandler;
+	protected static Handler mHandler;
 	public static Location currentLocation;
 	protected static MyLocationService gpsLocationListener;
 	protected static MyLocationService networkLocationListener;
+
+	private ImageView mImageView;
+	private FileListAdapter fileAdapterList;
+	private FileData currentData;
+	private ListView itemlist = null;
+	private ArrayList<FileInfo> fInfos = new ArrayList<FileListAdapter.FileInfo>();
+	private ProgressDialog mProgressDialog;
+	private RelativeLayout relativeLayoutPre;
+	private Button postBtn;
+	private Button cancelBtn;
+	private ImageView previewView;
 
 	/** Called when the activity is first created. */
 	@Override
@@ -88,10 +96,12 @@ public class LaCameraActivity extends Activity implements OnItemClickListener ,O
 		// 获取定位服务的Manager
 		locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
 		initComponents();
-
-		initList();
 		handleMessage();
 		startGPSLocationListener();
+
+		findFileInfo(IMAGE_DIR, fInfos);
+		currentData = new FileData(fInfos, null, IMAGE_DIR);
+		fileAdapterList = new FileListAdapter(this, currentData);
 	}
 
 	@Override
@@ -119,52 +129,136 @@ public class LaCameraActivity extends Activity implements OnItemClickListener ,O
 
 	private void handleMessage() {
 		// 在MyLocationService.java中，字面可了解大概意思
-		locationHandler = new Handler() {
+		mHandler = new Handler() {
 			public void handleMessage(Message msg) {
-				Location location = (Location) msg.obj;
 				switch (msg.what) {
 				case UPATE_LOCATION:
+					Location location = (Location) msg.obj;
 					// 开启GPS定位，在下面的onResume事件（用户可以交互时触发）中调用
 					// 如果当前无定位信息，则给出默认坐标
 					currentLocation = location;
 					mImageView.setEnabled(true);
 					break;
+				case MAKE_IMAGE:
+					// 让ProgressDialog显示
+					showProgressDialog(false);
+					final Uri u = (Uri) msg.obj;
+					new Thread() {
+
+						@Override
+						public void run() {
+							String imageFilepath = "";
+							Cursor cursor = getContentResolver().query(u, null,
+									null, null, null);
+							cursor.moveToFirst();
+							int index = cursor
+									.getColumnIndex(android.provider.MediaStore.Images.Media.DATA);
+							if (-1 != index) {
+								imageFilepath = cursor.getString(index);// 获取文件的绝对路径
+							}
+							cursor.close();
+
+							double latitude = currentLocation.getLatitude();
+							double longitude = currentLocation.getLongitude();
+							// 设置文件保存路径这里放在跟目录下
+							// File picture = new
+							// File(IMAGE_TEMP_DIR+TEMP_FILE_NAME);
+							String addr = SearchGoogleUtil.getAddr(latitude,
+									longitude);
+							pressText(DateUtil.getWaterDate(), String.format(
+									getString(R.string.latitude_longitude),
+									latitude, longitude), addr, imageFilepath,
+									"宋体", 36, Color.YELLOW, 25, 20, 0, 0x88);
+
+							File tempFile = new File(imageFilepath);
+							tempFile.delete();
+							dismissProgressDialog();
+
+							Message msg = mHandler.obtainMessage(REFRESH);
+							mHandler.sendMessage(msg);
+
+						}
+
+					}.start();
+					break;
 				case REFRESH:
 					refreshList();
+					break;
+				case INITFINISH:
+					initList();
+					break;
 				default:
 					break;
 				}
 			}
 		};
 	}
-//	LayoutInflater inflater;
-	RelativeLayout relativeLayoutPre;
-	LinearLayout lineLayoutCont;
-	Button postBtn ;
-	Button cancelBtn ;
-	ImageView previewView;
+
+	// LayoutInflater inflater;
+
+
 	private void initComponents() {
 		mImageView = (ImageView) findViewById(R.id.camera);
-//		inflater = getLayoutInflater();
+		// inflater = getLayoutInflater();
 
-//		LayoutInflater inflater =(LayoutInflater)this.getSystemService(LAYOUT_INFLATER_SERVICE);
-//		inflater = LayoutInflater.from(this);
-	    relativeLayoutPre = (RelativeLayout)findViewById(R.id.preview_layout);
-	    lineLayoutCont = (LinearLayout)findViewById(R.id.content_layout);
+		// LayoutInflater inflater
+		// =(LayoutInflater)this.getSystemService(LAYOUT_INFLATER_SERVICE);
+		// inflater = LayoutInflater.from(this);
+		relativeLayoutPre = (RelativeLayout) findViewById(R.id.preview_layout);
 		mImageView.setOnClickListener(listener);
 		itemlist = (ListView) findViewById(R.id.listView);
 
 		itemlist.setOnItemClickListener(this);
 		itemlist.setOnItemLongClickListener(itemLongClickListener);
-		
+
 		postBtn = (Button) findViewById(R.id.post_btn);
 		cancelBtn = (Button) findViewById(R.id.cancel_btn);
 		previewView = (ImageView) findViewById(R.id.preview_view);
 		postBtn.setOnClickListener(this);
 		cancelBtn.setOnClickListener(this);
-		
+
+		// mProgressDialog = new ProgressDialog(this);
+		// // 创建ProgressDialog对象
+		//
+		// // 设置进度条风格，风格为圆形，旋转的
+		// mProgressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+		//
+		// // 设置ProgressDialog 标题
+		// mProgressDialog.setTitle("提示");
+		//
+		// // 设置ProgressDialog提示信息
+		// mProgressDialog.setMessage("正在处理水印,请稍等...");
+		//
+		// // 设置ProgressDialog 的进度条是否不明确 false 就是不设置为不明确
+		// mProgressDialog.setIndeterminate(false);
+		//
+		// // 设置ProgressDialog 是否可以按退回键取消
+		// mProgressDialog.setCancelable(false);
+
 	}
 
+	private void showProgressDialog(boolean isInit) {
+		if (null == mProgressDialog) {
+			if (isInit) {
+				mProgressDialog = ProgressDialog.show(this, null,
+						getString(R.string.initialization), true);
+			} else {
+				mProgressDialog = ProgressDialog.show(this, null,
+						getString(R.string.makewater), true);
+			}
+		}
+	}
+
+	private void dismissProgressDialog() {
+		if (mProgressDialog != null) {
+			try {
+				mProgressDialog.dismiss();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			mProgressDialog = null;
+		}
+	}
 
 	private OnItemLongClickListener itemLongClickListener = new OnItemLongClickListener() {
 		@Override
@@ -174,33 +268,34 @@ public class LaCameraActivity extends Activity implements OnItemClickListener ,O
 			return true;
 		}
 	};
-	
+
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
 		// TODO Auto-generated method stub
 		return super.onTouchEvent(event);
 	}
 
-	  @Override
-	  public boolean onKeyDown(int keyCode, KeyEvent event) {
-	    switch (keyCode) {
-	    case KeyEvent.KEYCODE_BACK:
-	      if(relativeLayoutPre.isShown()){
+	@Override
+	public boolean onKeyDown(int keyCode, KeyEvent event) {
+		switch (keyCode) {
+		case KeyEvent.KEYCODE_BACK:
+			if (relativeLayoutPre.isShown()) {
 				mImageView.setEnabled(true);
 				itemlist.setEnabled(true);
 				relativeLayoutPre.setVisibility(View.INVISIBLE);
 				return true;
-	      }
-	      finish();
-	    default:
-	      return super.onKeyDown(keyCode, event);
-	    }
-	  }
+			}
+			finish();
+		default:
+			return super.onKeyDown(keyCode, event);
+		}
+	}
+
 	@Override
 	public void onClick(View v) {
 		switch (v.getId()) {
 		case R.id.post_btn:
-			
+
 			break;
 		case R.id.cancel_btn:
 			mImageView.setEnabled(true);
@@ -210,51 +305,55 @@ public class LaCameraActivity extends Activity implements OnItemClickListener ,O
 		default:
 			break;
 		}
-		
+
 	}
+
 	@Override
 	public void onItemClick(AdapterView<?> parent, View view, int position,
 			long id) {
-	
+
 		FileInfo fileinfo = currentData.fileInfos.get(position);
 		BitmapFactory.Options opts = new BitmapFactory.Options();
 		opts.inSampleSize = 1;
 		Bitmap bmp = BitmapFactory.decodeFile(fileinfo.path, opts);
-//		ImageView img = new ImageView(this);
-//		img.setLayoutParams(new LayoutParams(LayoutParams.FILL_PARENT,
-//				LayoutParams.FILL_PARENT));
-//		BitmapDrawable d = new BitmapDrawable(this.getResources(), bmp);
-//		img.setImageBitmap(bmp);
-//		img.setBackgroundDrawable(d);
+		// ImageView img = new ImageView(this);
+		// img.setLayoutParams(new LayoutParams(LayoutParams.FILL_PARENT,
+		// LayoutParams.FILL_PARENT));
+		// BitmapDrawable d = new BitmapDrawable(this.getResources(), bmp);
+		// img.setImageBitmap(bmp);
+		// img.setBackgroundDrawable(d);
 		previewView.setImageBitmap(bmp);
 		mImageView.setEnabled(false);
 		itemlist.setEnabled(false);
 		relativeLayoutPre.setVisibility(View.VISIBLE);
-		
-//		  AlertDialog.Builder builder = new AlertDialog.Builder(this);  
-//	        builder.setTitle("发送图像")  
-//	        .setView(img).setPositiveButton("发送", new DialogInterface.OnClickListener() {  
-//	            @Override  
-//	            public void onClick(DialogInterface dialog, int which) {  
-//	               
-//	            }  
-//	        })  
-//	        .setNegativeButton("取消",null);
-//	        
-//			img.setOnTouchListener(new OnTouchListener(){
-//
-//				@Override
-//				public boolean onTouch(View v, MotionEvent event) {
-//					Toast.makeText(LaCameraActivity.this, R.string.msg_unable_to_get_current_location,
-//							Toast.LENGTH_SHORT).show();
-//					return false;
-//				}
-//				
-//				
-//			});
-//	        builder.show();
-	        
+
+		// AlertDialog.Builder builder = new AlertDialog.Builder(this);
+		// builder.setTitle("发送图像")
+		// .setView(img).setPositiveButton("发送", new
+		// DialogInterface.OnClickListener() {
+		// @Override
+		// public void onClick(DialogInterface dialog, int which) {
+		//
+		// }
+		// })
+		// .setNegativeButton("取消",null);
+		//
+		// img.setOnTouchListener(new OnTouchListener(){
+		//
+		// @Override
+		// public boolean onTouch(View v, MotionEvent event) {
+		// Toast.makeText(LaCameraActivity.this,
+		// R.string.msg_unable_to_get_current_location,
+		// Toast.LENGTH_SHORT).show();
+		// return false;
+		// }
+		//
+		//
+		// });
+		// builder.show();
+
 	}
+
 	private void doOpenFile(String filePath) {
 		Intent intent = new Intent(Intent.ACTION_VIEW);
 		Uri uri = Uri.parse("file://" + filePath);
@@ -279,11 +378,8 @@ public class LaCameraActivity extends Activity implements OnItemClickListener ,O
 	}
 
 	private void initList() {
-		findFileInfo(IMAGE_DIR, fInfos);
-		currentData = new FileData(fInfos, null, IMAGE_DIR);
-		fileAdapterList = new FileListAdapter(this, currentData);
+		dismissProgressDialog();
 		itemlist.setAdapter(fileAdapterList);
-
 		fileAdapterList.notifyDataSetChanged();
 	}
 
@@ -296,31 +392,43 @@ public class LaCameraActivity extends Activity implements OnItemClickListener ,O
 	 * @param path
 	 * @param list
 	 */
-	private void findFileInfo(String path, List<FileInfo> list) {
+	private void findFileInfo(final String path, final List<FileInfo> list) {
+		showProgressDialog(true);
 
-		synchronized (list) {
-			list.clear();
+		new Thread() {
+			@Override
+			public void run() {
+				synchronized (list) {
+					list.clear();
 
-			File base = new File(path);
-			File[] files = base.listFiles();
-			if (files == null || files.length == 0)
-				return;
-			String name;
-			int length = files.length;
-			for (int i = 0; i < length; i++) {
-				File file = files[i];
-				name = file.getName();
-				// if (files[i].isHidden()) {
-				// continue;
-				// }
-				long time = file.lastModified();
-				list.add(new FileInfo(name, file.getAbsolutePath(), FileUtil
-						.switchIcon(file), null, // fileSize(files[i].length()),
-						file.isDirectory(), FileUtil.getDesc(file), time)); // //date.toLocaleString(),
+					File base = new File(path);
+					File[] files = base.listFiles();
+					if (files == null || files.length == 0)
+						return;
+					String name;
+					int length = files.length;
+					for (int i = 0; i < length; i++) {
+						File file = files[i];
+						name = file.getName();
+						// if (files[i].isHidden()) {
+						// continue;
+						// }
+						long time = file.lastModified();
+						list.add(new FileInfo(name, file.getAbsolutePath(),
+								FileUtil.switchIcon(file),
+								null, // fileSize(files[i].length()),
+								file.isDirectory(), FileUtil.getDesc(file),
+								time)); // //date.toLocaleString(),
 
+					}
+					Collections.sort(list);
+
+					Message message = mHandler.obtainMessage();
+					message.what = INITFINISH;
+					mHandler.sendMessage(message);
+				}
 			}
-			Collections.sort(list);
-		}
+		}.start();
 
 	}
 
@@ -350,68 +458,20 @@ public class LaCameraActivity extends Activity implements OnItemClickListener ,O
 	};
 
 	@Override
-	protected void onActivityResult(int requestCode, int resultCode, final Intent data) {
-		   // 创建ProgressDialog对象  
-		final ProgressDialog xh_pDialog = new ProgressDialog(this);  
+	protected void onActivityResult(int requestCode, int resultCode,
+			final Intent data) {
 
-        // 设置进度条风格，风格为圆形，旋转的  
-        xh_pDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);  
-
-        // 设置ProgressDialog 标题  
-        xh_pDialog.setTitle("提示");  
-
-        // 设置ProgressDialog提示信息  
-        xh_pDialog.setMessage("这是一个圆形进度条对话框");  
- 
-
-        // 设置ProgressDialog 的进度条是否不明确 false 就是不设置为不明确  
-        xh_pDialog.setIndeterminate(false);  
-
-        // 设置ProgressDialog 是否可以按退回键取消  
-        xh_pDialog.setCancelable(true);  
-
-        // 让ProgressDialog显示  
-        xh_pDialog.show();  
 		if (resultCode == 0 || data == null)
 			return;
 		// 拍照
 		if (requestCode == PHOTOHRAPH) {
+			// Message message = new Message();
 
-			new Thread(){
-
-				@Override
-				public void run() {
-					String imageFilepath = "";
-					Uri u = data.getData();
-					Cursor cursor = getContentResolver().query(u, null, null, null,
-							null);
-					cursor.moveToFirst();
-					int index = cursor
-							.getColumnIndex(android.provider.MediaStore.Images.Media.DATA);
-					if (-1 != index) {
-						imageFilepath = cursor.getString(index);// 获取文件的绝对路径
-					}
-					cursor.close();
-
-					double latitude = currentLocation.getLatitude();
-					double longitude = currentLocation.getLongitude();
-					// 设置文件保存路径这里放在跟目录下
-					// File picture = new File(IMAGE_TEMP_DIR+TEMP_FILE_NAME);
-					String addr = SearchGoogleUtil.getAddr(latitude, longitude);
-					pressText(DateUtil.getWaterDate(),
-							String.format(getString(R.string.latitude_longitude),
-									latitude, longitude), addr, imageFilepath, "宋体",
-							36, Color.YELLOW, 25, 20, 0, 0x88);
-
-					File tempFile = new File(imageFilepath);
-					tempFile.delete();
-					xh_pDialog.cancel();
-					locationHandler.obtainMessage(REFRESH).sendToTarget();
-				}
-				
-			}.start();
+			// message.sendToTarget();
+			// mHandler.obtainMessage(REFRESH).sendToTarget();
+			mHandler.sendMessage(Message.obtain(mHandler, MAKE_IMAGE,
+					data.getData()));
 		}
-	
 
 		super.onActivityResult(requestCode, resultCode, data);
 	}
@@ -457,7 +517,7 @@ public class LaCameraActivity extends Activity implements OnItemClickListener ,O
 			Typeface font = Typeface.create(fontName, fontStyle);
 
 			Paint p = new Paint();
-			canvasTemp.drawBitmap(bmp, 0, 0, p );
+			canvasTemp.drawBitmap(bmp, 0, 0, p);
 
 			p.setColor(color);
 			p.setTypeface(font);
@@ -545,9 +605,6 @@ public class LaCameraActivity extends Activity implements OnItemClickListener ,O
 			gpsLocationListener = null;
 		}
 	}
-
-
-
 
 }
 
