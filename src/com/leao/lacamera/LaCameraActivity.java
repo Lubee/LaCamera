@@ -70,6 +70,7 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 			.getExternalStorageDirectory() + "/LaCamera/image/";
 	public static double douLatitude = 23.098022285398542;
 	public static double douLongitude = 113.2801204919815;
+	public static Location currentLocation;
 
 	protected static final int UPATE_LOCATION = 1001;
 	protected static final int REFRESH = 1002;
@@ -78,10 +79,11 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 
 	protected static LocationManager locationManager;
 	protected static Handler mHandler;
-	public static Location currentLocation;
 	protected static MyLocationService gpsLocationListener;
 	protected static MyLocationService networkLocationListener;
 
+	private static double OFFSETLAT = -0.00264;
+	private static double OFFSETLON = 0.00545;
 	private ImageView mImageView;
 	private FileListAdapter fileAdapterList;
 	private FileData currentData;
@@ -105,9 +107,7 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 		handleMessage();
 		startGPSLocationListener();
 
-		findFileInfo(IMAGE_DIR, fInfos);
-		currentData = new FileData(fInfos, null, IMAGE_DIR);
-		fileAdapterList = new FileListAdapter(this, currentData);
+		refreshListData();
 	}
 
 	@Override
@@ -164,8 +164,8 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 							}
 							cursor.close();
 
-							double latitude = currentLocation.getLatitude();
-							double longitude = currentLocation.getLongitude();
+							double latitude = currentLocation.getLatitude()+OFFSETLAT;
+							double longitude = currentLocation.getLongitude()+OFFSETLON;
 							// 设置文件保存路径这里放在跟目录下
 							// File picture = new
 							// File(IMAGE_TEMP_DIR+TEMP_FILE_NAME);
@@ -178,7 +178,7 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 
 							File tempFile = new File(imageFilepath);
 							tempFile.delete();
-							dismissProgressDialog();
+//							dismissProgressDialog();
 
 							Message msg = mHandler.obtainMessage(REFRESH);
 							mHandler.sendMessage(msg);
@@ -188,7 +188,7 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 					}.start();
 					break;
 				case REFRESH:
-					refreshList();
+					refreshListData();
 					break;
 				case INITFINISH:
 					initList();
@@ -460,13 +460,16 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 	}
 
 	private void initList() {
-		dismissProgressDialog();
 		itemlist.setAdapter(fileAdapterList);
 		fileAdapterList.notifyDataSetChanged();
+		dismissProgressDialog();
 	}
 
-	private void refreshList() {
-		initList();
+	private void refreshListData() {
+		findFileInfo(IMAGE_DIR, fInfos);
+		currentData = new FileData(fInfos, null, IMAGE_DIR);
+		fileAdapterList = new FileListAdapter(this, currentData);
+		//initList();
 	}
 
 	/**
