@@ -34,7 +34,11 @@ import android.os.Message;
 import android.provider.MediaStore;
 import android.util.FloatMath;
 import android.util.Log;
+import android.view.ContextMenu;
+import android.view.ContextMenu.ContextMenuInfo;
 import android.view.KeyEvent;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -45,11 +49,13 @@ import android.webkit.MimeTypeMap;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.AdapterView.OnItemLongClickListener;
+import android.widget.AutoCompleteTextView.Validator;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.ImageView.ScaleType;
 import android.widget.ListView;
 import android.widget.RelativeLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.leao.lacamera.FileListAdapter.FileInfo;
@@ -216,6 +222,7 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 
 		itemlist.setOnItemClickListener(this);
 		itemlist.setOnItemLongClickListener(itemLongClickListener);
+		itemlist.setOnCreateContextMenuListener(this);
 
 		postBtn = (Button) findViewById(R.id.post_btn);
 		cancelBtn = (Button) findViewById(R.id.cancel_btn);
@@ -225,6 +232,10 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 		
 		postBtn.setOnClickListener(this);
 		cancelBtn.setOnClickListener(this);
+		
+		TextView gpsImgView = (TextView) findViewById(R.id.gps_numtext);
+		
+
 	}
 
 
@@ -334,16 +345,42 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 		}
 	}
 
+	private static volatile int rowId ;
 	private OnItemLongClickListener itemLongClickListener = new OnItemLongClickListener() {
 		@Override
 		public boolean onItemLongClick(AdapterView<?> parent, View view,
 				int position, long id) {
-			doOpenFile(currentData.fileInfos.get(position).path);
-			return true;
+//			doOpenFile(currentData.fileInfos.get(position).path);
+			rowId = position;
+			return false;
 		}
 	};
 
 
+	@Override
+	public void onCreateContextMenu(ContextMenu menu, View v,
+			ContextMenuInfo menuInfo) {
+		menu.setHeaderTitle("操作");
+		menu.add(1, 101, 0, "打开");
+		menu.add(1, 102, 0, "删除");
+	}
+	
+	@Override
+	public boolean onContextItemSelected(MenuItem item){
+		switch (item.getItemId()) {
+		case 101:
+			doOpenFile(currentData.fileInfos.get(rowId).path);
+			break;
+		case 102:
+			FileUtil.deleteFile(currentData.fileInfos.get(rowId).path);
+			refreshListData();
+			break;
+		default:
+			break;
+		}
+		return super.onContextItemSelected(item);
+	}
+	
 	@Override
 	public boolean onKeyDown(int keyCode, KeyEvent event) {
 		switch (keyCode) {

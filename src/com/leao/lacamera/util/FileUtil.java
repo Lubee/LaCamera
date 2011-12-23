@@ -65,4 +65,13 @@ public class FileUtil {
 		Date date = new Date(time);
 		return sdf.format(date);
 	}
+	
+	public static boolean deleteFile(String filePath){
+		File file = new File(filePath);
+		if(file.exists()){
+			file.delete();
+			return true;
+		}
+		return false;
+	}
 }
