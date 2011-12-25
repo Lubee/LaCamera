@@ -8,9 +8,11 @@ import java.util.Collections;
 import java.util.List;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
@@ -32,12 +34,12 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.provider.MediaStore;
+import android.provider.Settings;
 import android.util.FloatMath;
 import android.util.Log;
 import android.view.ContextMenu;
 import android.view.ContextMenu.ContextMenuInfo;
 import android.view.KeyEvent;
-import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
@@ -49,7 +51,6 @@ import android.webkit.MimeTypeMap;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.AdapterView.OnItemLongClickListener;
-import android.widget.AutoCompleteTextView.Validator;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.ImageView.ScaleType;
@@ -529,25 +530,25 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 
 					File base = new File(path);
 					File[] files = base.listFiles();
-					if (files == null || files.length == 0)
-						return;
-					String name;
-					int length = files.length;
-					for (int i = 0; i < length; i++) {
-						File file = files[i];
-						name = file.getName();
-						// if (files[i].isHidden()) {
-						// continue;
-						// }
-						long time = file.lastModified();
-						list.add(new FileInfo(name, file.getAbsolutePath(),
-								FileUtil.switchIcon(file),
-								null, // fileSize(files[i].length()),
-								file.isDirectory(), FileUtil.getDesc(file),
-								time)); // //date.toLocaleString(),
-
+					if (files != null && files.length != 0){
+						String name;
+						int length = files.length;
+						for (int i = 0; i < length; i++) {
+							File file = files[i];
+							name = file.getName();
+							// if (files[i].isHidden()) {
+							// continue;
+							// }
+							long time = file.lastModified();
+							list.add(new FileInfo(name, file.getAbsolutePath(),
+									FileUtil.switchIcon(file),
+									null, // fileSize(files[i].length()),
+									file.isDirectory(), FileUtil.getDesc(file),
+									time)); // //date.toLocaleString(),
+							
+						}
+						Collections.sort(list);
 					}
-					Collections.sort(list);
 
 					Message message = mHandler.obtainMessage();
 					message.what = INITFINISH;
@@ -690,6 +691,29 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 		} else { // gps and network are both disabled
 			Toast.makeText(this, R.string.msg_unable_to_get_current_location,
 					Toast.LENGTH_SHORT).show();
+			new AlertDialog.Builder(this){}.setTitle("GPS设置")
+			.setNegativeButton("取消", null)
+			.setPositiveButton("确定", new DialogInterface.OnClickListener() {
+				
+				@Override
+				public void onClick(DialogInterface dialog, int which) {
+				       Intent intent = new Intent();  
+				        intent.setAction(Settings.ACTION_LOCATION_SOURCE_SETTINGS);  
+				        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);  
+				        try   
+				        {  
+				            startActivity(intent);  
+				        } catch(ActivityNotFoundException ex)   
+				        {  
+				            intent.setAction(Settings.ACTION_SETTINGS);  
+				            try {  
+				                   startActivity(intent);  
+				            } catch (Exception e) {  
+				            }  
+				        } 
+					
+				}
+			}).show();
 			mImageView.setEnabled(false);
 		}
 
