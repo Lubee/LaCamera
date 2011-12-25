@@ -105,6 +105,9 @@ public class MyLocationService extends Service implements LocationListener {
 			// Log.i("Location", provider + " is AVAILABLE");
 			// gpsLocationListener has higher priority than
 			// networkLocationListener
+			Message m = locationHandler.obtainMessage(
+					LaCameraActivity.LOCATION_STATUS, 0, 0, numSatellites+"");
+			locationHandler.sendMessage(m);
 			if (provider.equals("gps")) {
 				LaCameraActivity.locationManager
 						.removeUpdates(LaCameraActivity.networkLocationListener);

@@ -3,5 +3,10 @@
 
     <string name="hello">Hello World, LaCameraActivity!</string>
     <string name="app_name">LaCamera</string>
-
+	<string name="msg_unable_to_get_current_location"> can not get the current position. </string>
+     <string name="latitude_longitude"> latitude:%1$09f longitude:%2$09f </string>
+     <string name="can_not_open_file"> open file error </string>
+     <string name="can_not_find_a_suitable_program_to_open_this_file"> not find a suitable program to open this file </string>
+     <string name="initialization"> Initializing ...</string>
+     <string name="makewater"> watermark is being processed, please wait ...</string>
 </resources>

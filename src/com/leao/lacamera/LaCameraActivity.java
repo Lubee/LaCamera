@@ -82,6 +82,7 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 	protected static final int REFRESH = 1002;
 	protected static final int MAKE_IMAGE = 1003;
 	protected static final int INITFINISH = 1004;
+	protected static final int LOCATION_STATUS = 1005;
 
 	protected static LocationManager locationManager;
 	protected static Handler mHandler;
@@ -100,6 +101,7 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 	private Button postBtn;
 	private Button cancelBtn;
 	private ImageView previewView;
+	private TextView gpsImgView;
 
 	/** Called when the activity is first created. */
 	@Override
@@ -112,7 +114,7 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 		initComponents();
 		handleMessage();
 		startGPSLocationListener();
-
+		this.getResources().getText(R.string.initialization);
 		refreshListData();
 	}
 
@@ -150,6 +152,10 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 					// 如果当前无定位信息，则给出默认坐标
 					currentLocation = location;
 					mImageView.setEnabled(true);
+					break;
+				case LOCATION_STATUS:
+					String num = (String) msg.obj;
+					gpsImgView.setText(num);
 					break;
 				case MAKE_IMAGE:
 					// 让ProgressDialog显示
@@ -233,9 +239,7 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 		postBtn.setOnClickListener(this);
 		cancelBtn.setOnClickListener(this);
 		
-		TextView gpsImgView = (TextView) findViewById(R.id.gps_numtext);
-		
-
+		gpsImgView = (TextView) findViewById(R.id.gps_numtext);
 	}
 
 

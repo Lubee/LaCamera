@@ -7,7 +7,7 @@
     <string name="latitude_longitude">纬度：%1$09f 经度：%2$09f</string>
     <string name="can_not_open_file">打开文件出错</string>
     <string name="can_not_find_a_suitable_program_to_open_this_file">没找到适合打开这个文件的程序</string>
-    <string name="initialization">正在初始化...</string>
+    <string name="initialization">正在刷新...</string>
     <string name="makewater">正在处理水印,请稍等...</string>
 
 </resources>
