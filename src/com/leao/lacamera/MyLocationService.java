@@ -14,13 +14,27 @@ import android.util.Log;
 public class MyLocationService extends Service implements LocationListener {
 
 	protected final static long MINTIME = 1000; // ms
-	protected final static float MINDISTANCE = 0; // m
+	protected final static float MINDISTANCE = 1; // m
 	private Handler locationHandler;
 
 	public MyLocationService() {
-		if(null == locationHandler){
+		if (null == locationHandler) {
 			locationHandler = LaCameraActivity.mHandler;
 		}
+
+//		new Thread() {
+//
+//			@Override
+//			public void run() {
+//				while (true) {
+//					Message m = locationHandler.obtainMessage(
+//							LaCameraActivity.LOCATION_STATUS, 0, 0,
+//							Math.random()*12 + "");
+//					locationHandler.sendMessage(m);
+//				}
+//			}
+//
+//		}.start();
 	}
 
 	@Override
@@ -59,10 +73,10 @@ public class MyLocationService extends Service implements LocationListener {
 	public void onProviderDisabled(String provider) {
 		// Log.i("Location", provider + " is disabled.");
 		if (provider.equals("gps")) {
-			String networkProvider = LocationManager.NETWORK_PROVIDER;
-			LaCameraActivity.locationManager.requestLocationUpdates(
-					networkProvider,MINTIME, MINDISTANCE,
-					LaCameraActivity.networkLocationListener);
+//			String networkProvider = LocationManager.NETWORK_PROVIDER;
+//			LaCameraActivity.locationManager.requestLocationUpdates(
+//					networkProvider, MINTIME, MINDISTANCE,
+//					LaCameraActivity.networkLocationListener);
 			// Log.i("Location", networkProvider + " requestLocationUpdates() "
 			// + minTime + " " + minDistance);
 		}
@@ -75,9 +89,9 @@ public class MyLocationService extends Service implements LocationListener {
 			LaCameraActivity.locationManager.requestLocationUpdates(provider,
 					MINTIME, MINDISTANCE, LaCameraActivity.gpsLocationListener);
 		} else {
-			LaCameraActivity.locationManager.requestLocationUpdates(provider,
-					MINTIME, MINDISTANCE,
-					LaCameraActivity.networkLocationListener);
+//			LaCameraActivity.locationManager.requestLocationUpdates(provider,
+//					MINTIME, MINDISTANCE,
+//					LaCameraActivity.networkLocationListener);
 		}
 		// Log.i("Location", provider + " requestLocationUpdates() " + minTime +
 		// " " + minDistance);
@@ -86,31 +100,37 @@ public class MyLocationService extends Service implements LocationListener {
 	// 状态变化时修改状态显示表
 	@Override
 	public void onStatusChanged(String provider, int status, Bundle extras) {
-		int numSatellites = extras.getInt("satellites", 0);
+		int numSatellites = extras.getInt("satellites", 11);
 		if (status == 0) {
 			// Log.i("Location", provider + " is OUT OF SERVICE");
+			Message m = locationHandler.obtainMessage(
+					LaCameraActivity.LOCATION_STATUS, 0, 0, numSatellites + "0");
+			locationHandler.sendMessage(m);
 		} else if (status == 1) {
 			// Log.i("Location", provider + " is TEMPORARILY UNAVAILABLE");
 			// invoke network's requestLocationUpdates() if not tracking
+			Message m = locationHandler.obtainMessage(
+					LaCameraActivity.LOCATION_STATUS, 0, 0, numSatellites + "1");
+			locationHandler.sendMessage(m);
 			if (provider.equals("gps")) {
-				String networkProvider = LocationManager.NETWORK_PROVIDER;
-				LaCameraActivity.locationManager.requestLocationUpdates(
-						networkProvider, MINTIME, MINDISTANCE,
-						LaCameraActivity.networkLocationListener);
-				Log.i("Location", networkProvider
-						+ " requestLocationUpdates() " + MINTIME + " "
-						+ MINDISTANCE);
+//				String networkProvider = LocationManager.NETWORK_PROVIDER;
+//				LaCameraActivity.locationManager.requestLocationUpdates(
+//						networkProvider, MINTIME, MINDISTANCE,
+//						LaCameraActivity.networkLocationListener);
+//				Log.i("Location", networkProvider
+//						+ " requestLocationUpdates() " + MINTIME + " "
+//						+ MINDISTANCE);
 			}
 		} else {
 			// Log.i("Location", provider + " is AVAILABLE");
 			// gpsLocationListener has higher priority than
 			// networkLocationListener
 			Message m = locationHandler.obtainMessage(
-					LaCameraActivity.LOCATION_STATUS, 0, 0, numSatellites+"");
+					LaCameraActivity.LOCATION_STATUS, 0, 0, numSatellites + "2");
 			locationHandler.sendMessage(m);
 			if (provider.equals("gps")) {
-				LaCameraActivity.locationManager
-						.removeUpdates(LaCameraActivity.networkLocationListener);
+//				LaCameraActivity.locationManager
+//						.removeUpdates(LaCameraActivity.networkLocationListener);
 			}
 		}
 	}

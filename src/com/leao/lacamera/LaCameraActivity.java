@@ -1,6 +1,7 @@
 package com.leao.lacamera;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -14,6 +15,7 @@ import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.CompressFormat;
@@ -70,9 +72,9 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 	public static final String TAG = "LaCamera";
 
 	public static final int PHOTOHRAPH = 1;
-	// private static final String TEMP_FILE_NAME = "temp.jpg";
-	// private static final String IMAGE_TEMP_DIR =
-	// Environment.getExternalStorageDirectory()+"/LaCamera/temp/";
+	 private static final String TEMP_FILE_NAME = "temp.jpg";
+	 private static final String IMAGE_TEMP_DIR =
+	 Environment.getExternalStorageDirectory()+"/LaCamera/temp/";
 	public static final String IMAGE_DIR = Environment
 			.getExternalStorageDirectory() + "/LaCamera/image/";
 	public static double douLatitude = 23.098022285398542;
@@ -82,6 +84,7 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 	protected static final int UPATE_LOCATION = 1001;
 	protected static final int REFRESH = 1002;
 	protected static final int MAKE_IMAGE = 1003;
+	protected static final int MAKE_IMAGE_BYBITMAP = 1006;
 	protected static final int INITFINISH = 1004;
 	protected static final int LOCATION_STATUS = 1005;
 
@@ -141,7 +144,11 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 		this.stopService(intent);
 		System.exit(-1);
 	}
-
+	@Override 
+    public void onConfigurationChanged(Configuration config) { 
+		super.onConfigurationChanged(config); 
+    } 
+	
 	private void handleMessage() {
 		// 在MyLocationService.java中，字面可了解大概意思
 		mHandler = new Handler() {
@@ -156,6 +163,7 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 					break;
 				case LOCATION_STATUS:
 					String num = (String) msg.obj;
+					Toast.makeText(LaCameraActivity.this, num, Toast.LENGTH_SHORT);
 					gpsImgView.setText(num);
 					break;
 				case MAKE_IMAGE:
@@ -184,9 +192,13 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 							// File(IMAGE_TEMP_DIR+TEMP_FILE_NAME);
 							String addr = SearchGoogleUtil.getAddr(latitude,
 									longitude);
+							BitmapFactory.Options opts = new BitmapFactory.Options();
+							opts.inSampleSize = 2;
+
+							Bitmap bmp = BitmapFactory.decodeFile(imageFilepath, opts);
 							pressText(DateUtil.getWaterDate(), String.format(
 									getString(R.string.latitude_longitude),
-									latitude, longitude), addr, imageFilepath,
+									latitude, longitude), addr, bmp,
 									"宋体", 36, Color.YELLOW, 25, 20, 0, 0x88);
 
 							File tempFile = new File(imageFilepath);
@@ -196,6 +208,36 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 							Message msg = mHandler.obtainMessage(REFRESH);
 							mHandler.sendMessage(msg);
 
+						}
+
+					}.start();
+					break;
+				case MAKE_IMAGE_BYBITMAP:
+					// 让ProgressDialog显示
+					showProgressDialog(false);
+					final Bitmap myBitmap = (Bitmap) msg.obj;
+					new Thread() {
+
+						@Override
+						public void run() {   
+							double latitude = currentLocation.getLatitude()+OFFSETLAT;
+							double longitude = currentLocation.getLongitude()+OFFSETLON;
+							// 设置文件保存路径这里放在跟目录下
+							// File picture = new
+							// File(IMAGE_TEMP_DIR+TEMP_FILE_NAME);
+							String addr = SearchGoogleUtil.getAddr(latitude,
+									longitude);
+							pressText(DateUtil.getWaterDate(), String.format(
+									getString(R.string.latitude_longitude),
+									latitude, longitude), addr, myBitmap,
+									"宋体", 36, Color.YELLOW, 25, 20, 0, 0x88);
+
+//							File tempFile = new File(imageFilepath);
+//							tempFile.delete();
+//							dismissProgressDialog();
+
+							Message msg = mHandler.obtainMessage(REFRESH);
+							mHandler.sendMessage(msg);
 						}
 
 					}.start();
@@ -502,6 +544,8 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 	}
 
 	private void initList() {
+		currentData = new FileData(fInfos, null, IMAGE_DIR);
+		fileAdapterList = new FileListAdapter(this, currentData);
 		itemlist.setAdapter(fileAdapterList);
 		fileAdapterList.notifyDataSetChanged();
 		dismissProgressDialog();
@@ -509,8 +553,6 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 
 	private void refreshListData() {
 		findFileInfo(IMAGE_DIR, fInfos);
-		currentData = new FileData(fInfos, null, IMAGE_DIR);
-		fileAdapterList = new FileListAdapter(this, currentData);
 		//initList();
 	}
 
@@ -566,15 +608,15 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 			switch (v.getId()) {
 			case R.id.camera:
 				Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-				// File file = new File(IMAGE_TEMP_DIR);
-				// if(!file.exists()){
-				// file.mkdirs();
-				// }
-
-				// intent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(new
-				// File(file,TEMP_FILE_NAME)));
-				// //intent.putExtra(android.provider.MediaStore.EXTRA_OUTPUT,
-				// android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+				 File file = new File(IMAGE_TEMP_DIR);
+				 if(!file.exists()){
+				 file.mkdirs();
+				 }
+//				 intent.putExtra(MediaStore.Images.Media.ORIENTATION, 0);
+//				 intent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(new
+//				 File(file,TEMP_FILE_NAME)));
+//				 intent.putExtra(android.provider.MediaStore.EXTRA_OUTPUT,
+//				 android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
 				startActivityForResult(intent, PHOTOHRAPH);
 				break;
 			default:
@@ -592,12 +634,28 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 			return;
 		// 拍照
 		if (requestCode == PHOTOHRAPH) {
+//			File f=new File(IMAGE_TEMP_DIR+"/"+TEMP_FILE_NAME);
+//
+//					
+//
+//					   try {
+//						Uri u =
+//
+//						   Uri.parse(android.provider.MediaStore.Images.Media.insertImage(getContentResolver(),
+//
+//						   f.getAbsolutePath(), null, null));
 			// Message message = new Message();
 
 			// message.sendToTarget();
 			// mHandler.obtainMessage(REFRESH).sendToTarget();
-			mHandler.sendMessage(Message.obtain(mHandler, MAKE_IMAGE,
-					data.getData()));
+			if(data.getData() == null){
+				mHandler.sendMessage(Message.obtain(mHandler, MAKE_IMAGE_BYBITMAP,
+						(Bitmap)data.getExtras().get("data")));		
+			}else{
+				mHandler.sendMessage(Message.obtain(mHandler, MAKE_IMAGE,
+						data.getData()));
+			}
+
 		}
 
 		super.onActivityResult(requestCode, resultCode, data);
@@ -626,16 +684,13 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 	 *            透明度
 	 */
 	private void pressText(String pressText, String locationText, String addr,
-			String targetImg, String fontName, int fontStyle, int color,
+			Bitmap targetImg, String fontName, int fontStyle, int color,
 			int fontSize, int x, int y, int alpha) {
-		if (null == targetImg || targetImg.length() < 0) {
+		if (null == targetImg ) {
 			return;
 		}
 		try {
-			BitmapFactory.Options opts = new BitmapFactory.Options();
-			opts.inSampleSize = 2;
-
-			Bitmap bmp = BitmapFactory.decodeFile(targetImg, opts);
+			Bitmap bmp = targetImg;
 			int width = bmp.getWidth();
 			int height = bmp.getHeight();
 			Bitmap mbmpTest = Bitmap
@@ -730,17 +785,17 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 		}
 
 		/* NETWORK_PROVIDER */
-		if (networkLocationListener == null) {
-			networkLocationListener = new MyLocationService();
-
-			// LocationManager.NETWORK_PROVIDER = "network"
-			provider = LocationManager.NETWORK_PROVIDER;
-			locationManager.requestLocationUpdates(provider,
-					MyLocationService.MINTIME, MyLocationService.MINDISTANCE,
-					networkLocationListener);
-			// Log.i("Location", provider + " requestLocationUpdates() " +
-			// minTime + " " + minDistance);
-		}
+//		if (networkLocationListener == null) {
+//			networkLocationListener = new MyLocationService();
+//
+//			// LocationManager.NETWORK_PROVIDER = "network"
+//			provider = LocationManager.NETWORK_PROVIDER;
+//			locationManager.requestLocationUpdates(provider,
+//					MyLocationService.MINTIME, MyLocationService.MINDISTANCE,
+//					networkLocationListener);
+//			// Log.i("Location", provider + " requestLocationUpdates() " +
+//			// minTime + " " + minDistance);
+//		}
 	}
 
 	protected static void finishGPSLocationListener() {
