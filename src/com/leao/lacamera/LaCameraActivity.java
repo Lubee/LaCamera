@@ -12,6 +12,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.ActivityNotFoundException;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -36,6 +37,7 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.provider.MediaStore;
+import android.provider.MediaStore.Images;
 import android.provider.Settings;
 import android.util.FloatMath;
 import android.util.Log;
@@ -169,14 +171,20 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 				case MAKE_IMAGE:
 					// 让ProgressDialog显示
 					showProgressDialog(false);
-					final Uri u = (Uri) msg.obj;
+					Uri tempUri = null;
+					if(msg.obj == null){
+						tempUri = Images.Media.EXTERNAL_CONTENT_URI;
+					}else{
+						tempUri =(Uri) msg.obj;
+					}
+					final Uri u = tempUri;
 					new Thread() {
 
 						@Override
 						public void run() {
 							String imageFilepath = "";
 							Cursor cursor = getContentResolver().query(u, null,
-									null, null, null);
+									null, null, Images.Media.DATE_TAKEN+" DESC");
 							cursor.moveToFirst();
 							int index = cursor
 									.getColumnIndex(android.provider.MediaStore.Images.Media.DATA);
@@ -600,7 +608,7 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 		}.start();
 
 	}
-
+	String imagePath = "";
 	private OnClickListener listener = new OnClickListener() {
 
 		@Override
@@ -610,11 +618,20 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 				Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
 				 File file = new File(IMAGE_TEMP_DIR);
 				 if(!file.exists()){
-				 file.mkdirs();
+					 file.mkdirs();
 				 }
+//			      SimpleDateFormat timeStampFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+//			      String filename = timeStampFormat.format(new Date());
+//			     ContentValues values = new ContentValues();
+//			     values.put(Media.TITLE, filename);
+//			Uri photoUri = getContentResolver().insert(
+//			                                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+//			imagePath = getRealPathFromURI(photoUri,
+//			                                        getContentResolver());
+//			intent.putExtra(android.provider.MediaStore.EXTRA_OUTPUT, photoUri);
 //				 intent.putExtra(MediaStore.Images.Media.ORIENTATION, 0);
-//				 intent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(new
-//				 File(file,TEMP_FILE_NAME)));
+				 intent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(new
+				 File(file,TEMP_FILE_NAME)));
 //				 intent.putExtra(android.provider.MediaStore.EXTRA_OUTPUT,
 //				 android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
 				startActivityForResult(intent, PHOTOHRAPH);
@@ -625,35 +642,53 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 
 		}
 	};
+	public static String getRealPathFromURI(Uri uri, ContentResolver resolver) {
 
+        String[] proj = { MediaStore.Images.Media.DATA };
+        Cursor cursor = resolver.query(uri, proj, null, null, null);
+        int column_index = cursor
+                        .getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
+        cursor.moveToFirst();
+        String str = cursor.getString(column_index);
+        cursor.close();
+
+        return str;
+
+}
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode,
 			final Intent data) {
 
-		if (resultCode == 0 || data == null)
+		if (resultCode == 0)
 			return;
 		// 拍照
 		if (requestCode == PHOTOHRAPH) {
-//			File f=new File(IMAGE_TEMP_DIR+"/"+TEMP_FILE_NAME);
-//
-//					
-//
-//					   try {
-//						Uri u =
-//
-//						   Uri.parse(android.provider.MediaStore.Images.Media.insertImage(getContentResolver(),
-//
-//						   f.getAbsolutePath(), null, null));
-			// Message message = new Message();
+//			String path = "";
+//            
+//            Cursor cursor = getContentResolver().query( Images.Media.EXTERNAL_CONTENT_URI, new String[]{Images.Media.DATA},
+//                            null, null, Images.Media.DATE_TAKEN+" DESC");
+//            if(cursor!=null && cursor.moveToFirst()){
+//                   
+//                     path = cursor.getString(cursor.getColumnIndexOrThrow(Images.Media.DATA));
+//                           
+//            }
+			try {
+				Uri u = null;
+				if(data == null || data.getData() == null){
+					File f = new File(IMAGE_TEMP_DIR+TEMP_FILE_NAME);
+					u = Uri.parse(android.provider.MediaStore.Images.Media.insertImage(getContentResolver(),
+							f.getAbsolutePath(), null, null));
+				}else{
+					u = data.getData();
+				}
+				// Message message = new Message();
 
-			// message.sendToTarget();
-			// mHandler.obtainMessage(REFRESH).sendToTarget();
-			if(data.getData() == null){
-				mHandler.sendMessage(Message.obtain(mHandler, MAKE_IMAGE_BYBITMAP,
-						(Bitmap)data.getExtras().get("data")));		
-			}else{
-				mHandler.sendMessage(Message.obtain(mHandler, MAKE_IMAGE,
-						data.getData()));
+				// message.sendToTarget();
+				// mHandler.obtainMessage(REFRESH).sendToTarget();
+				mHandler.sendMessage(Message.obtain(mHandler, MAKE_IMAGE,u));
+			} catch (FileNotFoundException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 
 		}
