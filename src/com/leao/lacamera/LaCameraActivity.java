@@ -6,6 +6,7 @@ import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 
 import android.app.Activity;
@@ -29,7 +30,10 @@ import android.graphics.Paint;
 import android.graphics.PointF;
 import android.graphics.Typeface;
 import android.location.Criteria;
+import android.location.GpsSatellite;
+import android.location.GpsStatus;
 import android.location.Location;
+import android.location.LocationListener;
 import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Bundle;
@@ -66,6 +70,7 @@ import android.widget.Toast;
 import com.leao.lacamera.FileListAdapter.FileInfo;
 import com.leao.lacamera.util.DateUtil;
 import com.leao.lacamera.util.FileUtil;
+import com.leao.lacamera.util.LogUtil;
 import com.leao.lacamera.util.SearchGoogleUtil;
 
 public class LaCameraActivity extends Activity implements OnItemClickListener,
@@ -86,9 +91,10 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 	protected static final int UPATE_LOCATION = 1001;
 	protected static final int REFRESH = 1002;
 	protected static final int MAKE_IMAGE = 1003;
-	protected static final int MAKE_IMAGE_BYBITMAP = 1006;
 	protected static final int INITFINISH = 1004;
 	protected static final int LOCATION_STATUS = 1005;
+	protected static final int MAKE_IMAGE_BYBITMAP = 1006;
+	protected static final int GPS_STATUS = 1007;
 
 	protected static LocationManager locationManager;
 	protected static Handler mHandler;
@@ -165,9 +171,14 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 					break;
 				case LOCATION_STATUS:
 					String num = (String) msg.obj;
-					Toast.makeText(LaCameraActivity.this, num, Toast.LENGTH_SHORT);
+					Toast.makeText(LaCameraActivity.this, num, Toast.LENGTH_SHORT).show();
 					gpsImgView.setText(num);
 					break;
+				case GPS_STATUS:
+					String count = (String) msg.obj;
+//	                Toast.makeText(LaCameraActivity.this, "卫星颗数："+count, Toast.LENGTH_SHORT).show();
+	                gpsImgView.setText(count+"");
+	                break;
 				case MAKE_IMAGE:
 					// 让ProgressDialog显示
 					showProgressDialog(false);
@@ -193,13 +204,14 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 							}
 							cursor.close();
 
-							double latitude = currentLocation.getLatitude()+OFFSETLAT;
-							double longitude = currentLocation.getLongitude()+OFFSETLON;
+							double latitude = currentLocation.getLatitude();
+							double longitude = currentLocation.getLongitude();
 							// 设置文件保存路径这里放在跟目录下
 							// File picture = new
 							// File(IMAGE_TEMP_DIR+TEMP_FILE_NAME);
 							String addr = SearchGoogleUtil.getAddr(latitude,
 									longitude);
+//							String addr = SearchGoogleUtil.getAddr(currentLocation, LaCameraActivity.this);
 							BitmapFactory.Options opts = new BitmapFactory.Options();
 							opts.inSampleSize = 2;
 
@@ -811,13 +823,16 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 		if (gpsLocationListener == null) {
 			gpsLocationListener = new MyLocationService();
 			// LocationManager.GPS_PROVIDER = "gps"
-			provider = LocationManager.GPS_PROVIDER;
-			locationManager.requestLocationUpdates(provider,
-					MyLocationService.MINTIME, MyLocationService.MINDISTANCE,
-					gpsLocationListener);
-			// Log.i("Location", provider + " requestLocationUpdates() " +
-			// minTime + " " + minDistance);
 		}
+		provider = LocationManager.GPS_PROVIDER;
+		locationManager.requestLocationUpdates(provider,
+				MyLocationService.MINTIME, MyLocationService.MINDISTANCE,
+				gpsLocationListener);
+		// Log.i("Location", provider + " requestLocationUpdates() " +
+		// minTime + " " + minDistance);
+		
+		//增加GPS状态监听器
+		locationManager.addGpsStatusListener(gpsLocationListener);
 
 		/* NETWORK_PROVIDER */
 //		if (networkLocationListener == null) {
@@ -833,19 +848,19 @@ public class LaCameraActivity extends Activity implements OnItemClickListener,
 //		}
 	}
 
-	protected static void finishGPSLocationListener() {
+	protected  void finishGPSLocationListener() {
 		if (locationManager != null) {
 			if (networkLocationListener != null) {
 				locationManager.removeUpdates(networkLocationListener);
 			}
 			if (gpsLocationListener != null) {
 				locationManager.removeUpdates(gpsLocationListener);
+				locationManager.removeGpsStatusListener(gpsLocationListener);
 			}
 			networkLocationListener = null;
 			gpsLocationListener = null;
 		}
 	}
-
 }
 
 class FileData {

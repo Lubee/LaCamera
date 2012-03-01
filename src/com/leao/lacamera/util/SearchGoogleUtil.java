@@ -6,9 +6,18 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLConnection;
+import java.util.List;
+
+import android.content.Context;
+import android.location.Address;
+import android.location.Geocoder;
+import android.location.Location;
 
 public class SearchGoogleUtil {
+
+	private static final double OFFSETLAT = -0.00264;
+	private static final double OFFSETLON = 0.00545;
+
 	/**
 	 * 根据经纬度反向解析地址，有时需要多尝试几次
 	 * 注意:(摘自：http://code.google.com/intl/zh-CN/apis/maps/faq.html
@@ -30,7 +39,7 @@ public class SearchGoogleUtil {
 		// output=csv,也可以是xml或json，不过使用csv返回的数据最简洁方便解析
 		String url = String.format(
 				"http://ditu.google.cn/maps/geo?output=csv&key=abcdef&q=%s,%s",
-				latitude, longitude);
+				latitude + OFFSETLAT, longitude + OFFSETLON);
 		URL myURL = null;
 		HttpURLConnection httpsConn = null;
 		try {
@@ -49,7 +58,7 @@ public class SearchGoogleUtil {
 			int responseCode = httpsConn.getResponseCode();
 			if (responseCode != HttpURLConnection.HTTP_OK) {
 				return "网络设置问题";
-			} 
+			}
 			if (httpsConn != null) {
 				InputStreamReader insr = new InputStreamReader(
 						httpsConn.getInputStream(), "UTF-8");
@@ -69,9 +78,40 @@ public class SearchGoogleUtil {
 		} catch (IOException e) {
 			e.printStackTrace();
 			return "超时";
-		}finally{
+		} finally {
 			httpsConn.disconnect();
 		}
 		return addr;
+	}
+
+	/**
+	 * 采用Google Android的api获取信息
+	 * 
+	 * @param currentLocation
+	 * @param mContext
+	 * @return
+	 */
+	public static String getAddr(Location currentLocation, Context mContext) {
+		// 解析地址并显示
+		String addressStr = "";
+		Geocoder geoCoder = new Geocoder(mContext);
+		try {
+			double latitude = currentLocation.getLatitude() + OFFSETLAT;
+			double longitude = currentLocation.getLongitude() + OFFSETLON;
+			List<Address> list = geoCoder.getFromLocation(latitude, longitude,
+					1);
+			for (int i = 0; i < list.size(); i++) {
+				Address address = list.get(i);
+				// addressStr = address.getCountryName() +
+				// address.getAdminArea()
+				// + address.getFeatureName();
+				addressStr = address.getAddressLine(0)
+						+ address.getAddressLine(1) + address.getAddressLine(2)
+						+ " "+address.getAddressLine(3);
+			}
+		} catch (IOException e) {
+			return e.getMessage();
+		}
+		return addressStr;
 	}
 }
